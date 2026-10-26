@@ -1,19 +1,8 @@
 {
-  "name": "cf-do-binding-script-name-repro",
-  "private": true,
-  "type": "module",
-  "description": "Repro: bindings.durableObject always emits script_name, breaking durable_object-policy Containers",
-  "scripts": {
-    "check": "node check-script-name.mjs",
-    "build": "cf build --mode production",
-    "dry-run": "cf deploy --prebuilt --mode production --dry-run"
-  },
-  "devDependencies": {
-    "@cloudflare/config": "0.28.1",
-    "cf": "1.0.0-beta.23",
-    "wrangler": "4.153.0"
-  },
-  "allowScripts": {
-    "workerd@1.20261023.1": true
-  }
+	"name": "cf-do-binding-script-name-repro",
+	"private": true,
+	"type": "module",
+	"devDependencies": {
+		"@cloudflare/config": "0.28.1"
+	}
 }
