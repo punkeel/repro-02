@@ -1,15 +1,6 @@
-// `bindings.durableObject({ worker, exportName })` cannot express a
-// same-script Durable Object binding: `@cloudflare/config` always emits
-// `script_name: worker` — even when `worker` is the Worker being deployed —
-// and `cf deploy` rejects `durable_object`-policy containers whose class is
-// bound via `script_name`:
-//
-//   "The container ... is referencing the durable object ..., which appears
-//    to be defined on the sandbox-worker Worker instead (via the
-//    'script_name' field). You cannot configure a container on a Durable
-//    Object that is defined in another Worker."
-//
-// Usage: npm install && node check.mjs
+// Regression check for the fixed self-reference behavior. The converted
+// binding intentionally keeps its explicit script_name; cf/wrangler now
+// recognizes that it matches the effective Worker name during validation.
 
 import { convertToWranglerConfig, resolveAndParseConfig } from "@cloudflare/config";
 
@@ -24,6 +15,8 @@ const { data } = await resolveAndParseConfig({
 	},
 }, { isPreview: false, mode: undefined });
 
-console.log(convertToWranglerConfig(data).durable_objects.bindings[0]);
-// → { name: 'DURABLE_SANDBOX', class_name: 'DurableSandbox',
-//     script_name: 'sandbox-worker' }   ← BUG: must be omitted, this IS this Worker
+const binding = convertToWranglerConfig(data).durable_objects.bindings[0];
+if (binding.script_name !== "sandbox-worker") {
+	throw new Error(`Expected explicit self-reference to be preserved: ${JSON.stringify(binding)}`);
+}
+console.log(binding);

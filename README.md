@@ -1,36 +1,41 @@
-# `bindings.durableObject` always emits `script_name`
+# Durable Object self-reference regression
 
-`cf`'s authored config can't express a **same-script** Durable Object binding: `bindings.durableObject({ worker, exportName })` is unconditionally converted to `{ class_name, script_name: worker }`, even when `worker` is the Worker being deployed (where wrangler requires `script_name` to be **omitted**).
-
-Harmless for ordinary DOs, but `cf deploy` rejects `durable_object`-policy containers whose class binding carries `script_name` — so the [official migration guide](https://developers.cloudflare.com/containers/guides/migrate-to-durable-object-scheduling-policy/) fails with a false positive (verified with `cf@1.0.0-beta.23`, the latest as of 2026-10-26):
-
-> The container sandbox-durable-object is referencing the durable object DurableSandbox, which appears to be defined on the sandbox-worker Worker instead (via the 'script_name' field). You cannot configure a container on a Durable Object that is defined in another Worker.
-
-`sandbox-worker` *is* the Worker being deployed.
-
-## Repro
-
-```sh
-npm install && node check.mjs
-```
-
-```js
-// input  (authored):  { type: "durable-object", worker: "sandbox-worker", exportName: "DurableSandbox" }
-// output (converted): { name: "DURABLE_SANDBOX", class_name: "DurableSandbox", script_name: "sandbox-worker" }
-//                                                                  BUG: script_name must be omitted ^
-```
-
-Root cause (`@cloudflare/config@0.28.1`, unconditional): `script_name: binding.worker`.
-
-## Workaround
+This repository is a minimal reproduction for Durable Object bindings that
+explicitly name the Worker that defines them. The authored binding is:
 
 ```ts
-DURABLE_SANDBOX: {
-	type: "unsafe:durable_object_namespace",
-	class_name: "DurableSandbox",
-} satisfies UnsafeBinding,
+bindings.durableObject({
+  worker: "sandbox-worker",
+  exportName: "DurableSandbox",
+})
 ```
 
-## Fix
+The configuration converter intentionally preserves the explicit target:
 
-Omit `script_name` when `worker === config.worker.name` — or have `cf` treat `script_name === deployingScriptName` as same-script.
+```js
+{ name: "DURABLE_SANDBOX", class_name: "DurableSandbox", script_name: "sandbox-worker" }
+```
+
+Before workers-sdk PR [#16013](https://github.com/cloudflare/workers-sdk/pull/16013),
+`cf@1.0.0-beta.23 deploy --dry-run` rejected a Durable Object-managed Container
+because it treated that `script_name` as an external Worker. The fix shipped in
+`cf@1.0.0-beta.26` and recognizes self-references using the effective Worker
+name while preserving explicit external targets.
+
+## Verify
+
+```sh
+npm install
+npm test
+```
+
+The regression script checks both conversion and a synthetic same-script
+Durable Object-managed Container using `cf@1.0.0-beta.26 deploy --dry-run`.
+The command builds the fixture image locally and performs Cloudflare's config
+validation without uploading or deploying anything.
+
+To reproduce the historical failure, run the same dry run with
+`npx cf@1.0.0-beta.23 deploy --dry-run`; it reports that `DurableSandbox`
+appears to be defined on `sandbox-worker` via `script_name` and rejects the
+Container. The fixed command exits successfully and lists the binding as
+`DurableSandbox, defined in sandbox-worker`.

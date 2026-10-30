@@ -3,6 +3,12 @@
 	"private": true,
 	"type": "module",
 	"devDependencies": {
-		"@cloudflare/config": "0.28.1"
+		"@cloudflare/config": "0.29.0",
+		"@cloudflare/vite-plugin": "2.0.0-beta.v.5",
+		"cf": "1.0.0-beta.26",
+		"vite": "7.1.12"
+	},
+	"scripts": {
+		"test": "node regression.mjs"
 	}
 }
