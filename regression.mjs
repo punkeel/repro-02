@@ -28,6 +28,22 @@ assert.deepEqual(binding, {
 	script_name: "sandbox-worker",
 });
 
+const renamed = await resolveAndParseConfig({
+	worker: {
+		name: "sandbox-deployment",
+		compatibilityDate: "2026-07-01",
+		env: {
+			DURABLE_SANDBOX: {
+				type: "durable-object",
+				worker: "sandbox-worker",
+				exportName: "DurableSandbox",
+			},
+		},
+	},
+}, { isPreview: false, mode: undefined });
+assert.equal(renamed.success, true);
+assert.equal(convertToWranglerConfig(renamed.data).durable_objects.bindings[0].script_name, "sandbox-worker");
+
 const cf = resolve(root, "node_modules/.bin/cf");
 const result = spawnSync(cf, ["deploy", "--dry-run", "--mode", "production"], {
 	cwd: root,
